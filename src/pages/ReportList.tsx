@@ -56,7 +56,7 @@ const ReportList = () => {
       );
     }
 
-    if (searchUser) {
+    if (searchUser && searchUser !== 'all') {
       filtered = filtered.filter(report => report.user_id === searchUser);
     }
 
@@ -125,7 +125,7 @@ const ReportList = () => {
                         <SelectValue placeholder="All Users" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Users</SelectItem>
+                        <SelectItem value="all">All Users</SelectItem>
                         {users.map(u => (
                           <SelectItem key={u.id} value={u.id}>
                             {u.full_name}
