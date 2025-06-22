@@ -24,27 +24,35 @@ const AdminUsers = () => {
 
   const loadUsers = () => {
     const allUsers = JSON.parse(localStorage.getItem('users') || '[]');
-    const otherUsers = allUsers.filter((u: User) => u.id !== user?.id);
+    const otherUsers = allUsers
+      .filter((u: any) => u.id !== user?.id)
+      .map((u: any): User => ({
+        id: u.id,
+        email: u.email,
+        full_name: u.full_name,
+        role: u.role as 'Admin' | 'User',
+        created_at: u.created_at
+      }));
     setUsers(otherUsers);
   };
 
-  const updateUser = (userId: string, role: string) => {
+  const updateUser = (userId: string, role: 'Admin' | 'User') => {
     const allUsers = JSON.parse(localStorage.getItem('users') || '[]');
-    const updatedUsers = allUsers.map((u: User) => 
+    const updatedUsers = allUsers.map((u: any) => 
       u.id === userId ? { ...u, role } : u
     );
 
     // Update password if provided
     const password = passwords[userId];
     if (password) {
-      const userIndex = updatedUsers.findIndex((u: User) => u.id === userId);
+      const userIndex = updatedUsers.findIndex((u: any) => u.id === userId);
       if (userIndex !== -1) {
         updatedUsers[userIndex].password = password; // In real app, this would be hashed
       }
     }
 
     localStorage.setItem('users', JSON.stringify(updatedUsers));
-    setUsers(updatedUsers.filter((u: User) => u.id !== user?.id));
+    loadUsers(); // Reload users to get updated data
     setPasswords(prev => ({ ...prev, [userId]: '' }));
 
     toast({
@@ -100,7 +108,7 @@ const AdminUsers = () => {
                         <td className="border border-gray-300 px-4 py-2">
                           <Select 
                             value={u.role} 
-                            onValueChange={(role) => {
+                            onValueChange={(role: 'Admin' | 'User') => {
                               const updatedUsers = users.map(user => 
                                 user.id === u.id ? { ...user, role } : user
                               );

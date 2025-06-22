@@ -29,11 +29,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Simulate API call - In real app, this would be an actual API call
       const users = JSON.parse(localStorage.getItem('users') || '[]');
-      const foundUser = users.find((u: User) => u.email === email);
+      const foundUser = users.find((u: any) => u.email === email);
       
       if (foundUser && foundUser.password === password) {
-        const userWithoutPassword = { ...foundUser };
-        delete userWithoutPassword.password;
+        const userWithoutPassword: User = {
+          id: foundUser.id,
+          email: foundUser.email,
+          full_name: foundUser.full_name,
+          role: foundUser.role as 'Admin' | 'User',
+          created_at: foundUser.created_at
+        };
         setUser(userWithoutPassword);
         localStorage.setItem('currentUser', JSON.stringify(userWithoutPassword));
         return true;
@@ -50,24 +55,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const users = JSON.parse(localStorage.getItem('users') || '[]');
       
       // Check if user already exists
-      if (users.some((u: User) => u.email === email)) {
+      if (users.some((u: any) => u.email === email)) {
         return false;
       }
 
+      const role: 'Admin' | 'User' = email === 'mohammadumair1412@gmail.com' ? 'Admin' : 'User';
+      
       const newUser = {
         id: Date.now().toString(),
         email,
         password, // In real app, this would be hashed
         full_name,
-        role: email === 'mohammadumair1412@gmail.com' ? 'Admin' : 'User',
+        role,
         created_at: new Date().toISOString()
       };
 
       users.push(newUser);
       localStorage.setItem('users', JSON.stringify(users));
 
-      const userWithoutPassword = { ...newUser };
-      delete userWithoutPassword.password;
+      const userWithoutPassword: User = {
+        id: newUser.id,
+        email: newUser.email,
+        full_name: newUser.full_name,
+        role: newUser.role,
+        created_at: newUser.created_at
+      };
       setUser(userWithoutPassword);
       localStorage.setItem('currentUser', JSON.stringify(userWithoutPassword));
       return true;
