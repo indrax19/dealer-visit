@@ -9,6 +9,33 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          created_at: string | null
+          full_name: string
+          id: string
+          role: string
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          full_name: string
+          id: string
+          role?: string
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          role?: string
+          updated_at?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
       snapshots: {
         Row: {
           active_data: Json
@@ -57,6 +84,10 @@ export type Database = {
       cleanup_old_snapshots: {
         Args: { retention_days?: number }
         Returns: number
+      }
+      get_user_role: {
+        Args: { user_id: string }
+        Returns: string
       }
       save_auto_snapshot: {
         Args: Record<PropertyKey, never>
