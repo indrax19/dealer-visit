@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
@@ -85,7 +86,7 @@ const Navigation = () => {
                 </NavLink>
               ))}
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">{currentUser?.name}</span>
+              <span className="text-sm text-gray-600">{currentUser?.full_name}</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -138,7 +139,7 @@ const Navigation = () => {
               </NavLink>
             ))}
           <div className="flex flex-col space-y-2 pt-2 border-t">
-            <span className="text-sm text-gray-600">{currentUser?.name}</span>
+            <span className="text-sm text-gray-600">{currentUser?.full_name}</span>
             <Button
               variant="outline"
               size="sm"

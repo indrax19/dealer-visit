@@ -18,7 +18,7 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [formData, setFormData] = useState({
     username: '',
-    name: '',
+    full_name: '',
     role: 'user' as 'admin' | 'user',
     password: '',
   });
@@ -26,7 +26,7 @@ const UserManagement = () => {
   const resetForm = () => {
     setFormData({
       username: '',
-      name: '',
+      full_name: '',
       role: 'user',
       password: '',
     });
@@ -44,7 +44,7 @@ const UserManagement = () => {
     if (selectedUser) {
       const updateData: any = {
         username: formData.username,
-        name: formData.name,
+        full_name: formData.full_name,
         role: formData.role,
       };
       if (formData.password) {
@@ -60,8 +60,8 @@ const UserManagement = () => {
   const openEditDialog = (user: any) => {
     setSelectedUser(user);
     setFormData({
-      username: user.username,
-      name: user.name,
+      username: user.username || '',
+      full_name: user.full_name,
       role: user.role,
       password: '',
     });
@@ -104,15 +104,14 @@ const UserManagement = () => {
                       id="username"
                       value={formData.username}
                       onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
+                    <Label htmlFor="full_name">Full Name</Label>
                     <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      id="full_name"
+                      value={formData.full_name}
+                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                       required
                     />
                   </div>
@@ -168,15 +167,15 @@ const UserManagement = () => {
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.username}</TableCell>
-                    <TableCell>{user.name}</TableCell>
+                    <TableCell className="font-medium">{user.username || 'N/A'}</TableCell>
+                    <TableCell>{user.full_name}</TableCell>
                     <TableCell>
                       <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
                         {user.role}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
@@ -221,15 +220,14 @@ const UserManagement = () => {
                     id="edit-username"
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-name">Full Name</Label>
+                  <Label htmlFor="edit-full_name">Full Name</Label>
                   <Input
-                    id="edit-name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    id="edit-full_name"
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                     required
                   />
                 </div>

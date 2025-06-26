@@ -14,7 +14,7 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [signupForm, setSignupForm] = useState({ 
-    name: '', 
+    full_name: '', 
     username: '', 
     password: '',
     confirmPassword: ''
@@ -52,7 +52,7 @@ const Auth = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signupForm.name || !signupForm.username || !signupForm.password) {
+    if (!signupForm.full_name || !signupForm.username || !signupForm.password) {
       toast.error('Please fill in all fields');
       return;
     }
@@ -70,14 +70,14 @@ const Auth = () => {
     setLoading(true);
     try {
       createUser({
-        name: signupForm.name,
+        full_name: signupForm.full_name,
         username: signupForm.username,
         role: 'user',
         password: signupForm.password
       });
       toast.success('Account created successfully!');
       // Reset form
-      setSignupForm({ name: '', username: '', password: '', confirmPassword: '' });
+      setSignupForm({ full_name: '', username: '', password: '', confirmPassword: '' });
     } catch (error) {
       toast.error('Failed to create account');
     }
@@ -155,15 +155,15 @@ const Auth = () => {
             <TabsContent value="signup">
               <form onSubmit={handleSignup} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Full Name</Label>
+                  <Label htmlFor="signup-full_name">Full Name</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
-                      id="signup-name"
+                      id="signup-full_name"
                       type="text"
                       placeholder="Enter your full name"
-                      value={signupForm.name}
-                      onChange={(e) => setSignupForm({...signupForm, name: e.target.value})}
+                      value={signupForm.full_name}
+                      onChange={(e) => setSignupForm({...signupForm, full_name: e.target.value})}
                       required
                       className="pl-10"
                     />

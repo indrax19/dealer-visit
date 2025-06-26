@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 </NavLink>
               ))}
               <span className="text-sm text-gray-600 whitespace-nowrap">
-                Welcome, {currentUser?.name || 'System Administrator'}
+                Welcome, {currentUser?.full_name || 'System Administrator'}
               </span>
               <Button
                 variant="outline"
@@ -94,7 +95,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 </NavLink>
               ))}
               <div className="flex justify-between items-center px-3">
-                <span className="text-sm text-gray-600">Welcome, {currentUser?.name || 'System Administrator'}</span>
+                <span className="text-sm text-gray-600">Welcome, {currentUser?.full_name || 'System Administrator'}</span>
                 <Button
                   variant="outline"
                   size="sm"

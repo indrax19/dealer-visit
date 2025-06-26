@@ -21,7 +21,7 @@ const ReportList = () => {
 
   useEffect(() => {
     loadReports();
-    if (user?.role === 'Admin') {
+    if (user?.role === 'admin') {
       loadUsers();
     }
   }, [user]);
@@ -34,7 +34,7 @@ const ReportList = () => {
     const allReports = JSON.parse(localStorage.getItem('reports') || '[]');
     let userReports = allReports;
 
-    if (user?.role === 'User') {
+    if (user?.role === 'user') {
       userReports = allReports.filter((report: Report) => report.user_id === user.id);
     }
 
@@ -57,7 +57,7 @@ const ReportList = () => {
     }
 
     if (searchUser && searchUser !== 'all') {
-      filtered = filtered.filter(report => report.user_id === searchUser);
+      filtered = filtered.filter(report => report.user_id === searchUser);  
     }
 
     setFilteredReports(filtered);
@@ -101,11 +101,11 @@ const ReportList = () => {
         <Card className="shadow-xl">
           <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
             <CardTitle className="text-2xl font-bold text-center">
-              {user?.role === 'Admin' ? 'All Reports' : 'My Reports'}
+              {user?.role === 'admin' ? 'All Reports' : 'My Reports'}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            {user?.role === 'Admin' && (
+            {user?.role === 'admin' && (
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                 <div className="grid md:grid-cols-3 gap-4">
                   <div>
@@ -154,7 +154,7 @@ const ReportList = () => {
                   <thead>
                     <tr className="bg-gray-100">
                       <th className="border border-gray-300 px-4 py-2 text-left">Date</th>
-                      {user?.role === 'Admin' && (
+                      {user?.role === 'admin' && (
                         <th className="border border-gray-300 px-4 py-2 text-left">Submitted By</th>
                       )}
                       <th className="border border-gray-300 px-4 py-2 text-left">Dealer</th>
@@ -170,7 +170,7 @@ const ReportList = () => {
                         <td className="border border-gray-300 px-4 py-2">
                           {new Date(report.created_at).toLocaleDateString()}
                         </td>
-                        {user?.role === 'Admin' && (
+                        {user?.role === 'admin' && (
                           <td className="border border-gray-300 px-4 py-2">
                             {report.user_name}
                           </td>

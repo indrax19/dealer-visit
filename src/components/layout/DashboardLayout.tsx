@@ -84,12 +84,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <div className="flex items-center space-x-3">
             <Avatar>
               <AvatarFallback>
-                {currentUser?.username?.substring(0, 2).toUpperCase() || 'U'}
+                {currentUser?.full_name?.substring(0, 2).toUpperCase() || 'U'}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">
-                {currentUser?.name || currentUser?.username || 'User'}
+                {currentUser?.full_name || 'User'}
               </p>
               <p className="text-xs text-gray-500 truncate">{currentUser?.role || 'User'}</p>
             </div>
@@ -125,11 +125,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   <Button variant="ghost" className="flex items-center space-x-2">
                     <Avatar className="w-8 h-8">
                       <AvatarFallback>
-                        {currentUser?.username?.substring(0, 2).toUpperCase() || 'U'}
+                        {currentUser?.full_name?.substring(0, 2).toUpperCase() || 'U'}
                       </AvatarFallback>
                     </Avatar>
                     <span className="hidden sm:block text-sm font-medium">
-                      {currentUser?.name || currentUser?.username || 'User'}
+                      {currentUser?.full_name || 'User'}
                     </span>
                   </Button>
                 </DropdownMenuTrigger>

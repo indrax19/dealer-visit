@@ -6,8 +6,10 @@ import { User, Session } from '@supabase/supabase-js';
 interface AuthUser {
   id: string;
   email?: string;
+  username?: string;
   full_name: string;
   role: 'admin' | 'user';
+  created_at?: string;
 }
 
 interface AuthContextType {
@@ -71,8 +73,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser({
         id: data.id,
         email: session?.user?.email,
+        username: data.username,
         full_name: data.full_name,
-        role: data.role as 'admin' | 'user'
+        role: data.role as 'admin' | 'user',
+        created_at: data.created_at
       });
     } catch (error) {
       console.error('Error loading user profile:', error);
@@ -90,8 +94,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setUsers(data.map(profile => ({
         id: profile.id,
+        username: profile.username,
         full_name: profile.full_name,
-        role: profile.role as 'admin' | 'user'
+        role: profile.role as 'admin' | 'user',
+        created_at: profile.created_at
       })));
     } catch (error) {
       console.error('Error loading users:', error);
@@ -150,6 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password: userData.password,
         user_metadata: {
           full_name: userData.full_name,
+          username: userData.username,
           role: userData.role
         }
       });
@@ -168,6 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase
         .from('profiles')
         .update({
+          username: userData.username,
           full_name: userData.full_name,
           role: userData.role
         })
