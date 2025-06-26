@@ -6,41 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, TrendingUp, TrendingDown, Minus, AlertTriangle, ChevronDown, Loader2 } from "lucide-react";
-import { getSnapshots, Snapshot } from "@/services/snapshotService";
+import { CalendarIcon, TrendingUp, TrendingDown, Minus, AlertTriangle, ChevronDown, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { getSnapshots, Snapshot, isValidActiveData, isValidExpiredData } from "@/services/snapshotService";
 import { ActiveDealerData, ExpiredDealerData } from "@/services/googleSheetsService";
-import { format, parse } from "date-fns";
-
-// Type guard functions to validate snapshot data
-const isActiveDealerDataArray = (data: unknown): data is ActiveDealerData[] => {
-  return Array.isArray(data) && data.every(item => 
-    typeof item === 'object' && 
-    item !== null &&
-    'dealer' in item &&
-    'service' in item &&
-    'zone' in item &&
-    'activeUsers' in item &&
-    typeof item.dealer === 'string' &&
-    typeof item.service === 'string' &&
-    typeof item.zone === 'string' &&
-    typeof item.activeUsers === 'number'
-  );
-};
-
-const isExpiredDealerDataArray = (data: unknown): data is ExpiredDealerData[] => {
-  return Array.isArray(data) && data.every(item => 
-    typeof item === 'object' && 
-    item !== null &&
-    'dealer' in item &&
-    'service' in item &&
-    'zone' in item &&
-    'expiredUsers' in item &&
-    typeof item.dealer === 'string' &&
-    typeof item.service === 'string' &&
-    typeof item.zone === 'string' &&
-    typeof item.expiredUsers === 'number'
-  );
-};
+import { format } from "date-fns";
 
 const HistoricalData = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -48,9 +17,11 @@ const HistoricalData = () => {
   const [expandedExpiredView, setExpandedExpiredView] = useState(false);
   
   // Fetch snapshots from Supabase
-  const { data: snapshots = [], isLoading: isSnapshotsLoading, error: snapshotsError } = useQuery({
+  const { data: snapshots = [], isLoading: isSnapshotsLoading, error: snapshotsError, refetch } = useQuery({
     queryKey: ['snapshots'],
     queryFn: () => getSnapshots(50), // Fetch more snapshots for historical analysis
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
 
   // Get available dates from snapshots
@@ -71,35 +42,36 @@ const HistoricalData = () => {
     if (!selectedSnapshot) return null;
     
     // Safely convert and validate the data
-    const activeData = isActiveDealerDataArray(selectedSnapshot.active_data) 
+    const activeData = isValidActiveData(selectedSnapshot.active_data) 
       ? selectedSnapshot.active_data 
       : [];
-    const expiredData = isExpiredDealerDataArray(selectedSnapshot.expired_data) 
+    const expiredData = isValidExpiredData(selectedSnapshot.expired_data) 
       ? selectedSnapshot.expired_data 
       : [];
     
     return {
       active: activeData,
-      expired: expiredData
+      expired: expiredData,
+      isValid: activeData.length > 0 || expiredData.length > 0
     };
   }, [selectedSnapshot]);
 
   const summaryStats = useMemo(() => {
-    if (!historicalData) return null;
+    if (!historicalData || !historicalData.isValid) return null;
 
     const { active, expired } = historicalData;
 
-    const totalActive = active.reduce((sum, dealer) => sum + dealer.activeUsers, 0);
-    const totalExpired = expired.reduce((sum, dealer) => sum + dealer.expiredUsers, 0);
-    const tesActiveData = active.filter(d => d.service.toLowerCase().includes('tes'));
-    const tesExpiredData = expired.filter(d => d.service.toLowerCase().includes('tes'));
-    const mcsolActiveData = active.filter(d => d.service.toLowerCase().includes('mcsol'));
-    const mcsolExpiredData = expired.filter(d => d.service.toLowerCase().includes('mcsol'));
+    const totalActive = active.reduce((sum, dealer) => sum + (dealer.activeUsers || 0), 0);
+    const totalExpired = expired.reduce((sum, dealer) => sum + (dealer.expiredUsers || 0), 0);
+    const tesActiveData = active.filter(d => d.service && d.service.toLowerCase().includes('tes'));
+    const tesExpiredData = expired.filter(d => d.service && d.service.toLowerCase().includes('tes'));
+    const mcsolActiveData = active.filter(d => d.service && d.service.toLowerCase().includes('mcsol'));
+    const mcsolExpiredData = expired.filter(d => d.service && d.service.toLowerCase().includes('mcsol'));
 
     const totalDealers = new Set([...active.map(d => d.dealer), ...expired.map(d => d.dealer)]).size;
     const totalExpiredDealers = new Set(expired.map(d => d.dealer)).size;
-    const highRiskExpired = expired.filter(d => d.expiredUsers >= 20).length;
-    const mediumRiskExpired = expired.filter(d => d.expiredUsers >= 10 && d.expiredUsers < 20).length;
+    const highRiskExpired = expired.filter(d => (d.expiredUsers || 0) >= 20).length;
+    const mediumRiskExpired = expired.filter(d => (d.expiredUsers || 0) >= 10 && (d.expiredUsers || 0) < 20).length;
     const expiredRate = totalExpired / (totalActive + totalExpired) * 100;
 
     return {
@@ -107,13 +79,13 @@ const HistoricalData = () => {
       totalExpired,
       totalDealers,
       totalExpiredDealers,
-      expiredRate,
+      expiredRate: isNaN(expiredRate) ? 0 : expiredRate,
       highRiskExpired,
       mediumRiskExpired,
-      tesActive: tesActiveData.reduce((sum, d) => sum + d.activeUsers, 0),
-      tesExpired: tesExpiredData.reduce((sum, d) => sum + d.expiredUsers, 0),
-      mcsolActive: mcsolActiveData.reduce((sum, d) => sum + d.activeUsers, 0),
-      mcsolExpired: mcsolExpiredData.reduce((sum, d) => sum + d.expiredUsers, 0),
+      tesActive: tesActiveData.reduce((sum, d) => sum + (d.activeUsers || 0), 0),
+      tesExpired: tesExpiredData.reduce((sum, d) => sum + (d.expiredUsers || 0), 0),
+      mcsolActive: mcsolActiveData.reduce((sum, d) => sum + (d.activeUsers || 0), 0),
+      mcsolExpired: mcsolExpiredData.reduce((sum, d) => sum + (d.expiredUsers || 0), 0),
     };
   }, [historicalData]);
 
@@ -141,8 +113,15 @@ const HistoricalData = () => {
   if (snapshotsError) {
     return (
       <div className="text-center p-4 sm:p-8">
-        <h2 className="text-xl sm:text-2xl font-bold text-red-600 mb-4">Error Loading Data</h2>
-        <p className="text-sm sm:text-base text-gray-600 mb-4">Failed to fetch historical snapshots</p>
+        <div className="flex flex-col items-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h2 className="text-xl sm:text-2xl font-bold text-red-600 mb-4">Error Loading Data</h2>
+          <p className="text-sm sm:text-base text-gray-600 mb-4">Failed to fetch historical snapshots</p>
+          <Button onClick={() => refetch()} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }
@@ -225,15 +204,17 @@ const HistoricalData = () => {
         </Card>
       )}
 
-      {selectedDate && !historicalData && (
+      {selectedDate && (!historicalData || !historicalData.isValid) && (
         <Card>
           <CardContent className="text-center py-12">
-            <p className="text-gray-600">No data available for {format(selectedDate, "PPP")}</p>
+            <AlertCircle className="h-8 w-8 text-orange-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Valid Data Available</h3>
+            <p className="text-gray-600">No valid data available for {format(selectedDate, "PPP")}</p>
           </CardContent>
         </Card>
       )}
 
-      {selectedDate && historicalData && summaryStats && viewMode === "summary" && (
+      {selectedDate && historicalData && historicalData.isValid && summaryStats && viewMode === "summary" && (
         <>
           {/* Summary Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -373,7 +354,7 @@ const HistoricalData = () => {
         </>
       )}
 
-      {selectedDate && historicalData && viewMode === "detailed" && (
+      {selectedDate && historicalData && historicalData.isValid && viewMode === "detailed" && (
         <div className="space-y-6">
           {/* Active Users Table */}
           <Card>
@@ -394,15 +375,15 @@ const HistoricalData = () => {
                   <tbody>
                     {historicalData.active.map((dealer, index) => (
                       <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="p-3 font-medium">{dealer.dealer}</td>
+                        <td className="p-3 font-medium">{dealer.dealer || 'N/A'}</td>
                         <td className="p-3">
-                          <Badge variant={dealer.service.toLowerCase().includes('tes') ? 'default' : 'secondary'}>
-                            {dealer.service}
+                          <Badge variant={dealer.service && dealer.service.toLowerCase().includes('tes') ? 'default' : 'secondary'}>
+                            {dealer.service || 'N/A'}
                           </Badge>
                         </td>
-                        <td className="p-3">{dealer.zone}</td>
+                        <td className="p-3">{dealer.zone || 'N/A'}</td>
                         <td className="p-3 text-right font-bold text-green-600">
-                          {dealer.activeUsers.toLocaleString()}
+                          {(dealer.activeUsers || 0).toLocaleString()}
                         </td>
                       </tr>
                     ))}
@@ -444,22 +425,22 @@ const HistoricalData = () => {
                   </thead>
                   <tbody>
                     {historicalData.expired
-                      .sort((a, b) => b.expiredUsers - a.expiredUsers)
+                      .sort((a, b) => (b.expiredUsers || 0) - (a.expiredUsers || 0))
                       .map((dealer, index) => (
                         <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="p-3 font-medium">{dealer.dealer}</td>
+                          <td className="p-3 font-medium">{dealer.dealer || 'N/A'}</td>
                           <td className="p-3">
-                            <Badge variant={dealer.service.toLowerCase().includes('tes') ? 'default' : 'secondary'}>
-                              {dealer.service}
+                            <Badge variant={dealer.service && dealer.service.toLowerCase().includes('tes') ? 'default' : 'secondary'}>
+                              {dealer.service || 'N/A'}
                             </Badge>
                           </td>
-                          <td className="p-3">{dealer.zone}</td>
+                          <td className="p-3">{dealer.zone || 'N/A'}</td>
                           <td className="p-3 text-right font-bold text-red-600">
-                            {dealer.expiredUsers.toLocaleString()}
+                            {(dealer.expiredUsers || 0).toLocaleString()}
                           </td>
                           {expandedExpiredView && (
                             <td className="p-3 text-right">
-                              {getRiskBadge(dealer.expiredUsers)}
+                              {getRiskBadge(dealer.expiredUsers || 0)}
                             </td>
                           )}
                         </tr>

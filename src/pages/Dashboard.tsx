@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserX, TrendingUp, Database, Menu, X, Save, Building } from "lucide-react";
+import { Users, UserX, TrendingUp, Database, Menu, X, Save, Building, AlertCircle } from "lucide-react";
 import { fetchActiveUsersData, fetchExpiredUsersData, getZoneSummaries, storeHistoricalData } from "@/services/googleSheetsService";
 import { saveSnapshot } from "@/services/snapshotService";
 import { useEffect, useState } from "react";
@@ -20,12 +20,14 @@ const Dashboard = () => {
     queryKey: ['activeData'],
     queryFn: fetchActiveUsersData,
     refetchInterval: 30000,
+    retry: 2,
   });
 
   const { data: expiredData = [], isLoading: expiredLoading, error: expiredError, refetch: refetchExpired } = useQuery({
     queryKey: ['expiredData'],
     queryFn: fetchExpiredUsersData,
     refetchInterval: 30000,
+    retry: 2,
   });
 
   const combinedData = [...activeData.map(d => ({ ...d, expiredUsers: 0 })), ...expiredData.map(d => ({ ...d, activeUsers: 0 }))];
@@ -54,16 +56,37 @@ const Dashboard = () => {
 
   const handleSaveSnapshot = async () => {
     if (activeData.length === 0 && expiredData.length === 0) {
-      toast.error('No data available to save');
+      toast.error('No data available to save snapshot');
+      return;
+    }
+
+    // Validate data before saving
+    const hasValidActiveData = Array.isArray(activeData) && activeData.every(item => 
+      item && typeof item.dealer === 'string' && typeof item.activeUsers === 'number'
+    );
+    const hasValidExpiredData = Array.isArray(expiredData) && expiredData.every(item => 
+      item && typeof item.dealer === 'string' && typeof item.expiredUsers === 'number'
+    );
+
+    if (!hasValidActiveData && !hasValidExpiredData) {
+      toast.error('Invalid data format - cannot save snapshot');
       return;
     }
 
     setIsSavingSnapshot(true);
     try {
+      console.log('Saving snapshot with data:', { 
+        activeCount: activeData.length, 
+        expiredCount: expiredData.length,
+        sampleActiveData: activeData.slice(0, 2),
+        sampleExpiredData: expiredData.slice(0, 2)
+      });
+      
       await saveSnapshot(activeData, expiredData, 'manual');
       toast.success('Snapshot saved successfully!');
     } catch (error) {
-      toast.error('Failed to save snapshot');
+      console.error('Snapshot save error:', error);
+      toast.error(`Failed to save snapshot: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsSavingSnapshot(false);
     }
@@ -102,14 +125,17 @@ const Dashboard = () => {
   if (error) {
     return (
       <div className="text-center p-4 sm:p-8">
-        <h2 className="text-xl sm:text-2xl font-bold text-red-600 mb-4">Error Loading Data</h2>
-        <p className="text-sm sm:text-base text-gray-600 mb-4">Failed to fetch data from Google Sheets</p>
-        <button
-          onClick={() => refetch()}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm sm:text-base"
-        >
-          Retry
-        </button>
+        <div className="flex flex-col items-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h2 className="text-xl sm:text-2xl font-bold text-red-600 mb-4">Error Loading Data</h2>
+          <p className="text-sm sm:text-base text-gray-600 mb-4">Failed to fetch data from Google Sheets</p>
+          <button
+            onClick={() => refetch()}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm sm:text-base"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -181,7 +207,7 @@ const Dashboard = () => {
             </div>
             <Button
               onClick={handleSaveSnapshot}
-              disabled={isSavingSnapshot}
+              disabled={isSavingSnapshot || (activeData.length === 0 && expiredData.length === 0)}
               className="flex items-center gap-2"
             >
               <Save className="h-4 w-4" />
@@ -196,7 +222,7 @@ const Dashboard = () => {
         <div className="flex justify-center">
           <Button
             onClick={handleSaveSnapshot}
-            disabled={isSavingSnapshot}
+            disabled={isSavingSnapshot || (activeData.length === 0 && expiredData.length === 0)}
             className="flex items-center gap-2"
             size="sm"
           >
