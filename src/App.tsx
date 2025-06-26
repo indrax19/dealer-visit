@@ -12,6 +12,7 @@ import ExpiredUsers from '@/pages/ExpiredUsers';
 import HistoricalData from '@/pages/HistoricalData';
 import AdminDashboard from '@/pages/AdminDashboard';
 import UserManagement from '@/pages/UserManagement';
+import AdminUserManagement from '@/pages/AdminUserManagement';
 import DataComparison from '@/pages/DataComparison';
 import NotFound from '@/pages/NotFound';
 import Dashboard from './pages/Dashboard';
@@ -28,21 +29,25 @@ const queryClient = new QueryClient({
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { currentUser } = useAuth();
-  return currentUser ? <>{children}</> : <Navigate to="/login" replace />;
+  const { user } = useAuth();
+  return user ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
 // Admin Route Component
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { currentUser } = useAuth();
-  return currentUser?.role === 'admin' ? <>{children}</> : <Navigate to="/" replace />;
+  const { user } = useAuth();
+  return user?.role === 'admin' ? <>{children}</> : <Navigate to="/" replace />;
 };
 
 // Main App Content
 const AppContent = () => {
-  const { currentUser } = useAuth();
+  const { user, loading } = useAuth();
 
-  if (!currentUser) {
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!user) {
     return <LoginPage />;
   }
 
@@ -68,6 +73,11 @@ const AppContent = () => {
           <AdminLayout>
             <UserManagement />
           </AdminLayout>
+        </AdminRoute>
+      } />
+      <Route path="/admin/user-management" element={
+        <AdminRoute>
+          <AdminUserManagement />
         </AdminRoute>
       } />
       <Route path="/admin/compare" element={

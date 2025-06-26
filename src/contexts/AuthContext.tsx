@@ -1,123 +1,216 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { User, Session } from '@supabase/supabase-js';
 
-interface User {
+interface AuthUser {
   id: string;
-  username: string;
-  name: string;
+  email?: string;
+  full_name: string;
   role: 'admin' | 'user';
-  createdAt: string;
 }
 
 interface AuthContextType {
-  currentUser: User | null;
-  users: User[];
-  login: (username: string, password: string) => Promise<boolean>;
+  user: AuthUser | null;
+  currentUser: AuthUser | null;
+  users: AuthUser[];
+  session: Session | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  signup: (email: string, password: string, full_name: string) => Promise<boolean>;
   logout: () => void;
-  createUser: (userData: Omit<User, 'id' | 'createdAt'> & { password: string }) => void;
-  updateUser: (id: string, userData: Partial<User> & { password?: string }) => void;
-  deleteUser: (id: string) => void;
+  createUser: (userData: Omit<AuthUser, 'id'> & { password: string }) => Promise<boolean>;
+  updateUser: (id: string, userData: Partial<AuthUser> & { password?: string }) => Promise<boolean>;
+  deleteUser: (id: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const DEFAULT_ADMIN = {
-  id: 'admin-1',
-  username: 'admin',
-  name: 'Administrator',
-  role: 'admin' as const,
-  createdAt: new Date().toISOString(),
-  password: 'admin123'
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [users, setUsers] = useState<AuthUser[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Initialize with default admin if no users exist
-    const storedUsers = localStorage.getItem('adminUsers');
-    const storedPasswords = localStorage.getItem('adminPasswords');
-    
-    if (!storedUsers) {
-      const initialUsers = [DEFAULT_ADMIN];
-      setUsers(initialUsers.map(({ password, ...user }) => user));
-      localStorage.setItem('adminUsers', JSON.stringify(initialUsers.map(({ password, ...user }) => user)));
-      localStorage.setItem('adminPasswords', JSON.stringify({ [DEFAULT_ADMIN.id]: DEFAULT_ADMIN.password }));
-    } else {
-      setUsers(JSON.parse(storedUsers));
-    }
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        loadUserProfile(session.user.id);
+      }
+      setLoading(false);
+    });
 
-    // Check if user is logged in
-    const loggedInUser = localStorage.getItem('currentUser');
-    if (loggedInUser) {
-      setCurrentUser(JSON.parse(loggedInUser));
-    }
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        if (session?.user) {
+          await loadUserProfile(session.user.id);
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
-    const storedPasswords = JSON.parse(localStorage.getItem('adminPasswords') || '{}');
-    const user = users.find(u => u.username === username);
-    
-    if (user && storedPasswords[user.id] === password) {
-      setCurrentUser(user);
-      localStorage.setItem('currentUser', JSON.stringify(user));
+  const loadUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+
+      setUser({
+        id: data.id,
+        email: session?.user?.email,
+        full_name: data.full_name,
+        role: data.role as 'admin' | 'user'
+      });
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    }
+  };
+
+  const loadUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setUsers(data.map(profile => ({
+        id: profile.id,
+        full_name: profile.full_name,
+        role: profile.role as 'admin' | 'user'
+      })));
+    } catch (error) {
+      console.error('Error loading users:', error);
+    }
+  };
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
       return true;
-    }
-    return false;
-  };
-
-  const logout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('currentUser');
-  };
-
-  const createUser = (userData: Omit<User, 'id' | 'createdAt'> & { password: string }) => {
-    const newUser: User = {
-      ...userData,
-      id: `user-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    };
-    
-    const updatedUsers = [...users, newUser];
-    setUsers(updatedUsers);
-    
-    const storedPasswords = JSON.parse(localStorage.getItem('adminPasswords') || '{}');
-    storedPasswords[newUser.id] = userData.password;
-    
-    localStorage.setItem('adminUsers', JSON.stringify(updatedUsers));
-    localStorage.setItem('adminPasswords', JSON.stringify(storedPasswords));
-  };
-
-  const updateUser = (id: string, userData: Partial<User> & { password?: string }) => {
-    const updatedUsers = users.map(user => 
-      user.id === id ? { ...user, ...userData } : user
-    );
-    setUsers(updatedUsers);
-    localStorage.setItem('adminUsers', JSON.stringify(updatedUsers));
-    
-    if (userData.password) {
-      const storedPasswords = JSON.parse(localStorage.getItem('adminPasswords') || '{}');
-      storedPasswords[id] = userData.password;
-      localStorage.setItem('adminPasswords', JSON.stringify(storedPasswords));
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
     }
   };
 
-  const deleteUser = (id: string) => {
-    const updatedUsers = users.filter(user => user.id !== id);
-    setUsers(updatedUsers);
-    localStorage.setItem('adminUsers', JSON.stringify(updatedUsers));
-    
-    const storedPasswords = JSON.parse(localStorage.getItem('adminPasswords') || '{}');
-    delete storedPasswords[id];
-    localStorage.setItem('adminPasswords', JSON.stringify(storedPasswords));
+  const signup = async (email: string, password: string, full_name: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name,
+            role: 'user'
+          },
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Signup error:', error);
+      return false;
+    }
   };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+  };
+
+  const createUser = async (userData: Omit<AuthUser, 'id'> & { password: string }): Promise<boolean> => {
+    try {
+      // This would create a user in the admin_users table
+      // For now, we'll use the auth system
+      const { error } = await supabase.auth.admin.createUser({
+        email: `${userData.full_name.toLowerCase().replace(' ', '.')}@company.com`,
+        password: userData.password,
+        user_metadata: {
+          full_name: userData.full_name,
+          role: userData.role
+        }
+      });
+
+      if (error) throw error;
+      await loadUsers();
+      return true;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      return false;
+    }
+  };
+
+  const updateUser = async (id: string, userData: Partial<AuthUser> & { password?: string }): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: userData.full_name,
+          role: userData.role
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      await loadUsers();
+      return true;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      return false;
+    }
+  };
+
+  const deleteUser = async (id: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase.auth.admin.deleteUser(id);
+
+      if (error) throw error;
+      await loadUsers();
+      return true;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return false;
+    }
+  };
+
+  // Load users when user is admin
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      loadUsers();
+    }
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{
-      currentUser,
+      user,
+      currentUser: user,
       users,
+      session,
+      loading,
       login,
+      signup,
       logout,
       createUser,
       updateUser,
