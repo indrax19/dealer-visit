@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 const SnapshotHistory = () => {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const { data: snapshots = [], isLoading, error, refetch } = useQuery({
     queryKey: ['snapshots'],
@@ -24,14 +25,25 @@ const SnapshotHistory = () => {
       return;
     }
 
+    const confirmed = window.confirm('Are you sure you want to delete this snapshot? This action cannot be undone.');
+    if (!confirmed) {
+      return;
+    }
+
     setIsDeleting(id);
     try {
+      console.log('Attempting to delete snapshot:', id);
       await deleteSnapshot(id);
+      
+      // Invalidate and refetch the snapshots query
+      await queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+      
       toast.success('Snapshot deleted successfully');
-      refetch();
+      console.log('Snapshot deleted successfully');
     } catch (error) {
       console.error('Delete snapshot error:', error);
-      toast.error('Failed to delete snapshot');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete snapshot';
+      toast.error(`Failed to delete snapshot: ${errorMessage}`);
     } finally {
       setIsDeleting(null);
     }
@@ -76,6 +88,16 @@ const SnapshotHistory = () => {
     return { activeValid, expiredValid, isValid: activeValid && expiredValid };
   };
 
+  const handleRefresh = async () => {
+    try {
+      await refetch();
+      toast.success('Snapshots refreshed successfully');
+    } catch (error) {
+      console.error('Refresh error:', error);
+      toast.error('Failed to refresh snapshots');
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -110,7 +132,7 @@ const SnapshotHistory = () => {
             <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to Load Snapshots</h3>
             <p className="text-gray-600 mb-4">There was an error loading the snapshot history.</p>
-            <Button onClick={() => refetch()} variant="outline">
+            <Button onClick={handleRefresh} variant="outline">
               <RefreshCw className="h-4 w-4 mr-2" />
               Retry
             </Button>
@@ -129,7 +151,7 @@ const SnapshotHistory = () => {
             Snapshot History
             <Badge variant="outline">{snapshots.length} snapshots</Badge>
           </div>
-          <Button onClick={() => refetch()} variant="outline" size="sm">
+          <Button onClick={handleRefresh} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4" />
           </Button>
         </CardTitle>
@@ -147,6 +169,8 @@ const SnapshotHistory = () => {
           <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
             {snapshots.map((snapshot) => {
               const validation = validateSnapshotData(snapshot);
+              const isCurrentlyDeleting = isDeleting === snapshot.id;
+              
               return (
                 <div key={snapshot.id} className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
                   <div className="flex items-center justify-between mb-3">
@@ -170,6 +194,7 @@ const SnapshotHistory = () => {
                         size="sm"
                         onClick={() => handleDownloadSnapshot(snapshot)}
                         className="h-8 w-8 p-0"
+                        disabled={isCurrentlyDeleting}
                       >
                         <Download className="h-4 w-4" />
                       </Button>
@@ -177,10 +202,10 @@ const SnapshotHistory = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDeleteSnapshot(snapshot.id)}
-                        disabled={isDeleting === snapshot.id}
+                        disabled={isCurrentlyDeleting}
                         className="h-8 w-8 p-0"
                       >
-                        {isDeleting === snapshot.id ? (
+                        {isCurrentlyDeleting ? (
                           <RefreshCw className="h-4 w-4 animate-spin" />
                         ) : (
                           <Trash2 className="h-4 w-4" />

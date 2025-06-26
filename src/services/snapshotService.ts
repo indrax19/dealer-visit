@@ -81,63 +81,73 @@ export const saveSnapshot = async (
     expiredUsers: dealer.expiredUsers || 0
   }));
 
-  const { data, error } = await supabase
-    .from('snapshots')
-    .insert({
-      snapshot_type: type,
-      active_data: sanitizedActiveData as unknown as Json,
-      expired_data: sanitizedExpiredData as unknown as Json,
-      total_active: totalActive,
-      total_expired: totalExpired,
-      total_dealers: totalDealers,
-    })
-    .select()
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('snapshots')
+      .insert({
+        snapshot_type: type,
+        active_data: sanitizedActiveData as unknown as Json,
+        expired_data: sanitizedExpiredData as unknown as Json,
+        total_active: totalActive,
+        total_expired: totalExpired,
+        total_dealers: totalDealers,
+      })
+      .select()
+      .single();
 
-  if (error) {
-    console.error('Error saving snapshot:', error);
-    throw new Error(`Failed to save snapshot: ${error.message}`);
+    if (error) {
+      console.error('Error saving snapshot:', error);
+      throw new Error(`Failed to save snapshot: ${error.message}`);
+    }
+
+    console.log('Snapshot saved successfully:', data);
+    return data as Snapshot;
+  } catch (error) {
+    console.error('Unexpected error saving snapshot:', error);
+    throw error;
   }
-
-  console.log('Snapshot saved successfully:', data);
-  return data as Snapshot;
 };
 
 export const getSnapshots = async (limit: number = 10): Promise<Snapshot[]> => {
   console.log('Fetching snapshots with limit:', limit);
   
-  const { data, error } = await supabase
-    .from('snapshots')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(limit);
+  try {
+    const { data, error } = await supabase
+      .from('snapshots')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
-  if (error) {
-    console.error('Error fetching snapshots:', error);
-    throw new Error(`Failed to fetch snapshots: ${error.message}`);
-  }
-
-  console.log('Fetched snapshots:', data?.length || 0);
-  
-  // Validate fetched data
-  const validatedSnapshots = (data || []).filter(snapshot => {
-    const hasValidStructure = snapshot && 
-      typeof snapshot.id === 'string' &&
-      typeof snapshot.snapshot_type === 'string' &&
-      typeof snapshot.total_active === 'number' &&
-      typeof snapshot.total_expired === 'number' &&
-      typeof snapshot.total_dealers === 'number' &&
-      typeof snapshot.created_at === 'string';
-    
-    if (!hasValidStructure) {
-      console.warn('Invalid snapshot structure detected, skipping:', snapshot);
-      return false;
+    if (error) {
+      console.error('Error fetching snapshots:', error);
+      throw new Error(`Failed to fetch snapshots: ${error.message}`);
     }
-    
-    return true;
-  });
 
-  return validatedSnapshots as Snapshot[];
+    console.log('Fetched snapshots:', data?.length || 0);
+    
+    // Validate fetched data
+    const validatedSnapshots = (data || []).filter(snapshot => {
+      const hasValidStructure = snapshot && 
+        typeof snapshot.id === 'string' &&
+        typeof snapshot.snapshot_type === 'string' &&
+        typeof snapshot.total_active === 'number' &&
+        typeof snapshot.total_expired === 'number' &&
+        typeof snapshot.total_dealers === 'number' &&
+        typeof snapshot.created_at === 'string';
+      
+      if (!hasValidStructure) {
+        console.warn('Invalid snapshot structure detected, skipping:', snapshot);
+        return false;
+      }
+      
+      return true;
+    });
+
+    return validatedSnapshots as Snapshot[];
+  } catch (error) {
+    console.error('Unexpected error fetching snapshots:', error);
+    throw error;
+  }
 };
 
 export const deleteSnapshot = async (id: string): Promise<void> => {
@@ -147,15 +157,20 @@ export const deleteSnapshot = async (id: string): Promise<void> => {
     throw new Error('Invalid snapshot ID');
   }
   
-  const { error } = await supabase
-    .from('snapshots')
-    .delete()
-    .eq('id', id);
+  try {
+    const { error } = await supabase
+      .from('snapshots')
+      .delete()
+      .eq('id', id);
 
-  if (error) {
-    console.error('Error deleting snapshot:', error);
-    throw new Error(`Failed to delete snapshot: ${error.message}`);
+    if (error) {
+      console.error('Error deleting snapshot:', error);
+      throw new Error(`Failed to delete snapshot: ${error.message}`);
+    }
+
+    console.log('Snapshot deleted successfully');
+  } catch (error) {
+    console.error('Unexpected error deleting snapshot:', error);
+    throw error;
   }
-
-  console.log('Snapshot deleted successfully');
 };
